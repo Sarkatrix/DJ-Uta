@@ -76,7 +76,6 @@ async def on_ready():
         print(f"Erreur lors de la sync : {e}")
 
 
-# ✅ Rejoint le salon vocal de l'utilisateur avec gestion d'erreur
 @bot.tree.command(name="join", description="Fait rejoindre le salon vocal")
 async def join(interaction: discord.Interaction):
     if not interaction.user.voice or not interaction.user.voice.channel:
@@ -91,29 +90,39 @@ async def join(interaction: discord.Interaction):
         await interaction.response.send_message(f"❌ Erreur en rejoignant le vocal : {e}", ephemeral=True)
 
 
-# ▶️ Joue une musique depuis une URL ou un mot-clé
 @bot.tree.command(name="play", description="Joue une musique à partir d’un lien ou d’un mot-clé")
 @app_commands.describe(query="Lien YouTube ou mot-clé")
 async def play(interaction: discord.Interaction, query: str):
     await interaction.response.defer()
+    print(f"[DEBUG] /play reçu avec query : {query}")
 
     voice_client = interaction.guild.voice_client
     if not voice_client:
         if interaction.user.voice:
             voice_client = await interaction.user.voice.channel.connect()
+            print(f"[DEBUG] Bot connecté au vocal : {interaction.user.voice.channel.name}")
         else:
             await interaction.followup.send("❌ Tu dois être dans un salon vocal !")
             return
 
     try:
         info = ytdl.extract_info(query, download=False)
+        print(f"[DEBUG] Info extraite : {info}")
         url = info['url'] if 'url' in info else info['entries'][0]['url']
         title = info['title'] if 'title' in info else info['entries'][0]['title']
     except Exception as e:
+        print(f"[ERREUR yt-dlp] {e}")
         await interaction.followup.send(f"Erreur lors de la recherche : {str(e)}")
         return
 
-    source = await discord.FFmpegOpusAudio.from_probe(url, **FFMPEG_OPTIONS)
+    try:
+        source = await discord.FFmpegOpusAudio.from_probe(url, **FFMPEG_OPTIONS)
+        print("[DEBUG] Source audio chargée")
+    except Exception as e:
+        print(f"[ERREUR FFmpeg] {e}")
+        await interaction.followup.send(f"Erreur lors de la lecture audio : {str(e)}")
+        return
+
     voice_client.stop()
     voice_client.play(source)
 
@@ -124,6 +133,7 @@ async def play(interaction: discord.Interaction, query: str):
         while True:
             await asyncio.sleep(1)
             if not voice_client.is_playing() and view.looping and view.current_source:
+                print("[DEBUG] Relance de la musique en boucle")
                 voice_client.play(view.current_source)
 
     bot.loop.create_task(check_loop())
@@ -134,7 +144,6 @@ async def play(interaction: discord.Interaction, query: str):
     )
 
 
-# 🔐 Lancement du bot avec token sécurisé
 if __name__ == "__main__":
     TOKEN = os.getenv("DISCORD_TOKEN")
     if TOKEN is None:
