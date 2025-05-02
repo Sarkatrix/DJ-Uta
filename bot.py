@@ -75,15 +75,23 @@ async def on_ready():
     except Exception as e:
         print(f"Erreur lors de la sync : {e}")
 
+
+# ✅ Rejoint le salon vocal de l'utilisateur avec gestion d'erreur
 @bot.tree.command(name="join", description="Fait rejoindre le salon vocal")
 async def join(interaction: discord.Interaction):
-    if interaction.user.voice:
+    if not interaction.user.voice or not interaction.user.voice.channel:
+        await interaction.response.send_message("❌ Tu dois être dans un salon vocal pour que je te rejoigne.", ephemeral=True)
+        return
+
+    try:
         channel = interaction.user.voice.channel
         await channel.connect()
-        await interaction.response.send_message(f"🔊 Rejoint le salon : {channel.name}", ephemeral=True)
-    else:
-        await interaction.response.send_message("❌ Tu dois être dans un salon vocal !", ephemeral=True)
+        await interaction.response.send_message(f"🔊 Je t’ai rejoint dans **{channel.name}** !", ephemeral=True)
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Erreur en rejoignant le vocal : {e}", ephemeral=True)
 
+
+# ▶️ Joue une musique depuis une URL ou un mot-clé
 @bot.tree.command(name="play", description="Joue une musique à partir d’un lien ou d’un mot-clé")
 @app_commands.describe(query="Lien YouTube ou mot-clé")
 async def play(interaction: discord.Interaction, query: str):
@@ -125,7 +133,8 @@ async def play(interaction: discord.Interaction, query: str):
         view=view
     )
 
-# Lancement du bot
+
+# 🔐 Lancement du bot avec token sécurisé
 if __name__ == "__main__":
     TOKEN = os.getenv("DISCORD_TOKEN")
     if TOKEN is None:
